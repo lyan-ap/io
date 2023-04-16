@@ -66,10 +66,13 @@ const options = ref([
   },
 ]);
 
+function getCell(r, c) {
+  return luckysheet.getCellValue(r, 7);
+}
 function leftResult(col = 7, rows = [3, 4, 5]) {
   const errors = [];
   const success = [];
-  const [v1, v2, v3] = rows.map((r) => luckysheet.getCellValue(r, 7));
+  const [v1, v2, v3] = rows.map((r) => getCell(r, 7));
   const [i1, i2, i3] = ['结余比率', '财务负担比', '财务自由度'].map(
     (x) => `${x}指标`
   );
@@ -95,7 +98,7 @@ function rightResult(col = 7, rows = [3, 4, 5]) {
   const errors = [];
   const success = [];
 
-  const [v1, v2, v3] = rows.map((r) => luckysheet.getCellValue(r, col));
+  const [v1, v2, v3] = rows.map((r) => getCell(r, col));
   const [i1, i2, i3] = ['负债率', '投资比率', '流动性比率'].map(
     (x) => `${x}指标`
   );
@@ -130,8 +133,7 @@ function update() {
 
   const [successMsg, errorMsg] = result.map((x) => x.join(','));
   successInfo.value = successMsg;
-  errorInfo.value = errorMsg ? `${errorMsg},具体提升建议，请预约咨询！` : '';
-
+  errorInfo.value = errorMsg ? `${errorMsg}, 具体提升建议，请预约咨询！` : '';
   console.log('result: ', result);
 
   showModal.value = true;
@@ -148,10 +150,10 @@ onMounted(() => {
   console.log('isMobile.value: ', isMobile.value);
   luckysheet.create({
     container: 'luckysheet',
-    // showinfobar: false,
-    // cellUpdated: (e) => {
-    //   console.log(11, e);
-    // },
+    showinfobar: false,
+    cellUpdated: (e) => {
+      console.log(11, e);
+    },
   });
   const { text, value } = isPhone
     ? options.value[0]
@@ -188,7 +190,6 @@ function loadTable(value, name) {
   if (value == '') {
     return;
   }
-  const isFirst = value === types[0];
 
   LuckyExcel.transformExcelToLuckyByUrl(
     value,
@@ -213,10 +214,6 @@ function loadTable(value, name) {
       });
     }
   );
-  if (!isFirst) {
-    console.log(yearlyOutcome.value);
-    luckysheet.setCellValue(25, 5, yearlyOutcome.value);
-  }
 }
 </script>
 
