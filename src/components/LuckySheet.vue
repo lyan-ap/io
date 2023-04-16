@@ -1,15 +1,23 @@
 <template>
   <div class="container">
     <div class="header">
-      <select v-model="selected" placeholder="请选择" @change="selectExcel">
-        <option
-          v-for="option in options"
-          :key="option.text"
-          :value="option.value"
+      <div>
+        <select
+          class="minimal"
+          v-show="isMobile"
+          v-model="selected"
+          placeholder="请选择"
+          @change="selectExcel"
         >
-          {{ option.text }}
-        </option>
-      </select>
+          <option
+            v-for="option in options"
+            :key="option.text"
+            :value="option.value"
+          >
+            {{ option.text }}
+          </option>
+        </select>
+      </div>
       <div style="text-align: center" @click="update">
         <button class="update-button">财务报表计算</button>
       </div>
@@ -25,12 +33,8 @@
       </template>
       <template #body>
         <div>
-          <div v-show="result.showSuccess" class="success">
-            您的{{ result.success }};
-          </div>
-          <div v-show="result.showError" class="error">
-            您的{{ result.error }}
-          </div>
+          <div v-if="successInfo" class="success">您的{{ successInfo }};</div>
+          <div v-show="errorInfo" class="error">您的{{ errorInfo }}</div>
         </div>
       </template>
     </modal>
@@ -38,18 +42,19 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUpdated } from 'vue';
 import { exportExcel } from './export';
 import Modal from './Modal.vue';
 import LuckyExcel from 'luckyexcel';
 const types = ['./assets/family-io.xlsx', './assets/family-o.xlsx'];
 const showModal = ref(false);
+const isMobile = ref(true);
 const selected = ref(types[0]);
-const result = ref({
-  success: '',
-  error: '',
-});
+const isFirst = ref(true);
+const successInfo = ref('');
+const errorInfo = ref('');
 const jsonData = ref({});
+const yearlyOutcome = ref(0);
 const options = ref([
   {
     text: '家庭收入支出表-年度.xlsx',
@@ -61,86 +66,124 @@ const options = ref([
   },
 ]);
 
-function update() {
-  const value = selected.value;
+function leftResult(col = 7, rows = [3, 4, 5]) {
+  const errors = [];
+  const success = [];
+  const [v1, v2, v3] = rows.map((r) => luckysheet.getCellValue(r, 7));
+  const [i1, i2, i3] = ['结余比率', '财务负担比', '财务自由度'].map(
+    (x) => `${x}指标`
+  );
+  if (v1 <= 0.2) {
+    errors.push(`${i1}高于参考值`);
+  } else {
+    success.push(`${i1}合适`);
+  }
+  if (v2 >= 0.4) {
+    errors.push(`${i2}低于参考值`);
+  } else {
+    success.push(`${i2}合适`);
+  }
+  if (v3 <= 1.0) {
+    errors.push(`${i3}低于参考值`);
+  } else {
+    success.push(`${i3}美好`);
+  }
+
+  return [success, errors];
+}
+function rightResult(col = 7, rows = [3, 4, 5]) {
   const errors = [];
   const success = [];
 
-  if (value === types[0]) {
-    const [v1, v2, v3] = [3, 4, 5].map((r) => luckysheet.getCellValue(r, 7));
-    const [i1, i2, i3] = ['结余比率', '财务负担比', '财务自由度'].map(
-      (x) => `${x}指标`
-    );
-    if (v1 <= 0.2) {
-      errors.push(`${i1}高于参考值`);
-    } else {
-      success.push(`${i1}合适`);
-    }
-    if (v2 >= 0.4) {
-      errors.push(`${i2}低于参考值`);
-    } else {
-      success.push(`${i2}合适`);
-    }
-    if (v3 <= 1.0) {
-      errors.push(`${i3}低于参考值`);
-    } else {
-      success.push(`${i3}美好`);
-    }
-  } else {
-    const [v1, v2, v3] = [3, 4, 5].map((r) => luckysheet.getCellValue(r, 7));
-    const [i1, i2, i3] = ['负债率', '投资比率', '流动性比率'].map(
-      (x) => `${x}指标`
-    );
+  const [v1, v2, v3] = rows.map((r) => luckysheet.getCellValue(r, col));
+  const [i1, i2, i3] = ['负债率', '投资比率', '流动性比率'].map(
+    (x) => `${x}指标`
+  );
 
-    if (v1 >= 0.7) {
-      errors.push(`${i1}高于参考值`);
-    } else {
-      success.push(`${i1}较安全`);
-    }
-    if (v2 <= 0.5) {
-      errors.push(`${i1}低于参考值`);
-    } else {
-      success.push(`${i2}合适`);
-    }
-    if (v3 < 3.0 || v3 > 6) {
-      errors.push(`${i1}不符合参考值`);
-    } else {
-      success.push(`${i3}适当`);
-    }
+  if (v1 >= 0.7) {
+    errors.push(`${i1}高于参考值`);
+  } else {
+    success.push(`${i1}较安全`);
   }
-  const [successMsg, errorMsg] = [success, errors].map((x) => x.join(','));
-  result.value = {
-    success: successMsg,
-    showSuccess: !!successMsg,
-    showError: !!errorMsg,
-    error: `${errorMsg},具体提升建议，请预约咨询！`,
-  };
+  if (v2 <= 0.5) {
+    errors.push(`${i1}低于参考值`);
+  } else {
+    success.push(`${i2}合适`);
+  }
+  if (v3 < 3.0 || v3 > 6) {
+    errors.push(`${i1}不符合参考值`);
+  } else {
+    success.push(`${i3}适当`);
+  }
+  return [success, errors];
+}
+
+function update() {
+  let result = [[], []];
+  luckysheet.setCellValue(3, 5, 10);
+  console.log('exportJson', jsonData.value.sheets[0]);
+  console.log(luckysheet);
+
+  // return;
+  if (isMobile.value) {
+    result = isFirst.value ? leftResult() : rightResult();
+  } else {
+    const [ls, le] = leftResult();
+    const [rs, re] = rightResult(16);
+    result = [ls.concat(rs), le.concat(re)];
+  }
+
+  const [successMsg, errorMsg] = result.map((x) => x.join(','));
+  successInfo.value = successMsg;
+  errorInfo.value = errorMsg ? `${errorMsg},具体提升建议，请预约咨询！` : '';
+
+  console.log('result: ', result);
+
   showModal.value = true;
 }
 
 onMounted(() => {
+  let isPhone = true;
+  if (/Mobi|Android|iPhone/i.test(navigator.userAgent)) {
+    isPhone = true;
+  } else {
+    // isPhone = false;
+  }
+  isMobile.value = isPhone;
   luckysheet.create({
     container: 'luckysheet',
     showinfobar: false,
-
-    // showtoolbarConfig: {
-    // showtoolbar: false,
-    // showtoolbarConfig: {
-    //   undoRedo: true,
-    //   font: true,
-    // },
-    // },
     cellUpdated: (e) => {
       console.log(11, e);
     },
   });
-  const { text, value } = options.value[0];
+  const { text, value } = isPhone
+    ? options.value[0]
+    : { text: 'ALL', value: './assets/family-all.xlsx' };
   loadTable(value, text);
+
+  if (isPhone) {
+    setTimeout(() => {
+      if (isFirst.value) {
+        yearlyOutcome.value = luckysheet.getCellValue(21, 5);
+        console.log('yearlyOutcome.value: ', yearlyOutcome.value);
+      }
+    }, 2000);
+  }
   showModal.value = !true;
+});
+
+onUpdated(() => {
+  if (isFirst.value) {
+    setTimeout(() => {
+      luckysheet.setCellValue(25, 5, yearlyOutcome.value);
+    }, 2000);
+  }
 });
 
 function selectExcel(evt) {
   const value = selected.value;
+  isFirst.value = value === types[0];
   const name = evt.target.options[evt.target.selectedIndex].innerText;
   loadTable(value, name);
 }
@@ -149,6 +192,7 @@ function loadTable(value, name) {
   if (value == '') {
     return;
   }
+  const isFirst = value === types[0];
 
   LuckyExcel.transformExcelToLuckyByUrl(
     value,
@@ -160,7 +204,6 @@ function loadTable(value, name) {
         );
         return;
       }
-      console.log('exportJson', exportJson);
       jsonData.value = exportJson;
 
       window.luckysheet.destroy();
@@ -174,6 +217,10 @@ function loadTable(value, name) {
       });
     }
   );
+  if (!isFirst) {
+    console.log(yearlyOutcome.value);
+    luckysheet.setCellValue(25, 5, yearlyOutcome.value);
+  }
 }
 </script>
 
@@ -185,6 +232,7 @@ function loadTable(value, name) {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  height: 60px;
 }
 #luckysheet {
   margin: 0px;
@@ -192,12 +240,12 @@ function loadTable(value, name) {
   position: absolute;
   width: 100%;
   left: 0px;
-  top: 50px;
+  top: 100px;
   bottom: 0px;
 }
 
 .update-button {
-  width: 200px;
+  width: 160px;
   height: 40px;
   border-width: 0px;
   border-radius: 3px;
@@ -233,5 +281,40 @@ function loadTable(value, name) {
 .error {
   color: #f00;
   font-weight: 700;
+}
+
+select {
+  /* styling */
+  background-color: white;
+  border: thin solid blue;
+  border-radius: 4px;
+  display: inline-block;
+  font: inherit;
+  line-height: 1.5em;
+  padding: 0.5em 3.5em 0.5em 1em;
+
+  /* reset */
+
+  margin: 0;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+select.minimal {
+  background-image: linear-gradient(45deg, transparent 50%, gray 50%),
+    linear-gradient(135deg, gray 50%, transparent 50%),
+    linear-gradient(to right, #ccc, #ccc);
+  background-position: calc(100% - 20px) calc(1em + 2px),
+    calc(100% - 15px) calc(1em + 2px), calc(100% - 2.5em) 0.5em;
+  background-size: 5px 5px, 5px 5px, 1px 1.5em;
+  background-repeat: no-repeat;
+}
+
+select:-moz-focusring {
+  color: transparent;
+  text-shadow: 0 0 0 #000;
 }
 </style>
