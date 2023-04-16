@@ -4,7 +4,7 @@
       <div>
         <select
           class="minimal"
-          v-show="isMobile"
+          v-if="isMobile"
           v-model="selected"
           placeholder="请选择"
           @change="selectExcel"
@@ -34,7 +34,7 @@
       <template #body>
         <div>
           <div v-if="successInfo" class="success">您的{{ successInfo }};</div>
-          <div v-show="errorInfo" class="error">您的{{ errorInfo }}</div>
+          <div v-if="errorInfo" class="error">您的{{ errorInfo }}</div>
         </div>
       </template>
     </modal>
@@ -120,11 +120,6 @@ function rightResult(col = 7, rows = [3, 4, 5]) {
 
 function update() {
   let result = [[], []];
-  luckysheet.setCellValue(3, 5, 10);
-  console.log('exportJson', jsonData.value.sheets[0]);
-  console.log(luckysheet);
-
-  // return;
   if (isMobile.value) {
     result = isFirst.value ? leftResult() : rightResult();
   } else {
@@ -147,15 +142,16 @@ onMounted(() => {
   if (/Mobi|Android|iPhone/i.test(navigator.userAgent)) {
     isPhone = true;
   } else {
-    // isPhone = false;
+    isPhone = false;
   }
   isMobile.value = isPhone;
+  console.log('isMobile.value: ', isMobile.value);
   luckysheet.create({
     container: 'luckysheet',
-    showinfobar: false,
-    cellUpdated: (e) => {
-      console.log(11, e);
-    },
+    // showinfobar: false,
+    // cellUpdated: (e) => {
+    //   console.log(11, e);
+    // },
   });
   const { text, value } = isPhone
     ? options.value[0]
@@ -166,16 +162,16 @@ onMounted(() => {
     setTimeout(() => {
       if (isFirst.value) {
         yearlyOutcome.value = luckysheet.getCellValue(21, 5);
-        console.log('yearlyOutcome.value: ', yearlyOutcome.value);
+        console.log('get: ', yearlyOutcome.value);
       }
     }, 2000);
   }
-  showModal.value = !true;
 });
 
 onUpdated(() => {
-  if (isFirst.value) {
+  if (isFirst.value && isMobile.value) {
     setTimeout(() => {
+      console.log('set', yearlyOutcome.value);
       luckysheet.setCellValue(25, 5, yearlyOutcome.value);
     }, 2000);
   }
