@@ -4,7 +4,7 @@
       <div>
         <select
           class="minimal"
-          v-show="isMobile"
+          v-if="isMobile"
           v-model="selected"
           placeholder="请选择"
           @change="selectExcel"
@@ -34,7 +34,7 @@
       <template #body>
         <div>
           <div v-if="successInfo" class="success">您的{{ successInfo }};</div>
-          <div v-show="errorInfo" class="error">您的{{ errorInfo }}</div>
+          <div v-if="errorInfo" class="error">您的{{ errorInfo }}</div>
         </div>
       </template>
     </modal>
@@ -42,35 +42,38 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUpdated } from 'vue';
-import { exportExcel } from './export';
-import Modal from './Modal.vue';
-import LuckyExcel from 'luckyexcel';
-const types = ['./assets/family-io.xlsx', './assets/family-o.xlsx'];
+import { ref, onMounted, onUpdated } from "vue";
+import { exportExcel } from "./export";
+import Modal from "./Modal.vue";
+import LuckyExcel from "luckyexcel";
+const types = ["./assets/family-io.xlsx", "./assets/family-o.xlsx"];
 const showModal = ref(false);
 const isMobile = ref(true);
 const selected = ref(types[0]);
 const isFirst = ref(true);
-const successInfo = ref('');
-const errorInfo = ref('');
+const successInfo = ref("");
+const errorInfo = ref("");
 const jsonData = ref({});
 const yearlyOutcome = ref(0);
 const options = ref([
   {
-    text: '家庭收入支出表-年度.xlsx',
+    text: "家庭收入支出表-年度.xlsx",
     value: types[0],
   },
   {
-    text: '家庭资产负债表.xlsx',
+    text: "家庭资产负债表.xlsx",
     value: types[1],
   },
 ]);
 
+function getCell(r, c) {
+  return luckysheet.getCellValue(r, 7);
+}
 function leftResult(col = 7, rows = [3, 4, 5]) {
   const errors = [];
   const success = [];
-  const [v1, v2, v3] = rows.map((r) => luckysheet.getCellValue(r, 7));
-  const [i1, i2, i3] = ['结余比率', '财务负担比', '财务自由度'].map(
+  const [v1, v2, v3] = rows.map((r) => getCell(r, 7));
+  const [i1, i2, i3] = ["结余比率", "财务负担比", "财务自由度"].map(
     (x) => `${x}指标`
   );
   if (v1 <= 0.2) {
@@ -95,8 +98,8 @@ function rightResult(col = 7, rows = [3, 4, 5]) {
   const errors = [];
   const success = [];
 
-  const [v1, v2, v3] = rows.map((r) => luckysheet.getCellValue(r, col));
-  const [i1, i2, i3] = ['负债率', '投资比率', '流动性比率'].map(
+  const [v1, v2, v3] = rows.map((r) => getCell(r, col));
+  const [i1, i2, i3] = ["负债率", "投资比率", "流动性比率"].map(
     (x) => `${x}指标`
   );
 
@@ -120,11 +123,6 @@ function rightResult(col = 7, rows = [3, 4, 5]) {
 
 function update() {
   let result = [[], []];
-  luckysheet.setCellValue(3, 5, 10);
-  console.log('exportJson', jsonData.value.sheets[0]);
-  console.log(luckysheet);
-
-  // return;
   if (isMobile.value) {
     result = isFirst.value ? leftResult() : rightResult();
   } else {
@@ -133,11 +131,10 @@ function update() {
     result = [ls.concat(rs), le.concat(re)];
   }
 
-  const [successMsg, errorMsg] = result.map((x) => x.join(','));
+  const [successMsg, errorMsg] = result.map((x) => x.join(","));
   successInfo.value = successMsg;
-  errorInfo.value = errorMsg ? `${errorMsg},具体提升建议，请预约咨询！` : '';
-
-  console.log('result: ', result);
+  errorInfo.value = errorMsg ? `${errorMsg}, 具体提升建议，请预约咨询！` : "";
+  console.log("result: ", result);
 
   showModal.value = true;
 }
@@ -147,11 +144,12 @@ onMounted(() => {
   if (/Mobi|Android|iPhone/i.test(navigator.userAgent)) {
     isPhone = true;
   } else {
-    // isPhone = false;
+    isPhone = false;
   }
   isMobile.value = isPhone;
+  console.log("isMobile.value: ", isMobile.value);
   luckysheet.create({
-    container: 'luckysheet',
+    container: "luckysheet",
     showinfobar: false,
     cellUpdated: (e) => {
       console.log(11, e);
@@ -159,23 +157,23 @@ onMounted(() => {
   });
   const { text, value } = isPhone
     ? options.value[0]
-    : { text: 'ALL', value: './assets/family-all.xlsx' };
+    : { text: "ALL", value: "./assets/family-all.xlsx" };
   loadTable(value, text);
 
   if (isPhone) {
     setTimeout(() => {
       if (isFirst.value) {
         yearlyOutcome.value = luckysheet.getCellValue(21, 5);
-        console.log('yearlyOutcome.value: ', yearlyOutcome.value);
+        console.log("get: ", yearlyOutcome.value);
       }
     }, 2000);
   }
-  showModal.value = !true;
 });
 
 onUpdated(() => {
-  if (isFirst.value) {
+  if (isFirst.value && isMobile.value) {
     setTimeout(() => {
+      console.log("set", yearlyOutcome.value);
       luckysheet.setCellValue(25, 5, yearlyOutcome.value);
     }, 2000);
   }
@@ -189,10 +187,9 @@ function selectExcel(evt) {
 }
 
 function loadTable(value, name) {
-  if (value == '') {
+  if (value == "") {
     return;
   }
-  const isFirst = value === types[0];
 
   LuckyExcel.transformExcelToLuckyByUrl(
     value,
@@ -200,7 +197,7 @@ function loadTable(value, name) {
     (exportJson, luckysheetfile) => {
       if (exportJson.sheets == null || exportJson.sheets.length == 0) {
         alert(
-          'Failed to read the content of the excel file, currently does not support xls files!'
+          "Failed to read the content of the excel file, currently does not support xls files!"
         );
         return;
       }
@@ -209,7 +206,7 @@ function loadTable(value, name) {
       window.luckysheet.destroy();
 
       window.luckysheet.create({
-        container: 'luckysheet',
+        container: "luckysheet",
         showinfobar: false,
         data: exportJson.sheets,
         title: exportJson.info.name,
@@ -217,10 +214,6 @@ function loadTable(value, name) {
       });
     }
   );
-  if (!isFirst) {
-    console.log(yearlyOutcome.value);
-    luckysheet.setCellValue(25, 5, yearlyOutcome.value);
-  }
 }
 </script>
 
