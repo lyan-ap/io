@@ -1,28 +1,12 @@
 <template>
   <div class="container">
-    <div class="header">
-      <div>
-        <select
-          class="minimal"
-          v-if="isMobile"
-          v-model="selected"
-          placeholder="请选择"
-          @change="selectExcel"
-        >
-          <option
-            v-for="option in options"
-            :key="option.text"
-            :value="option.value"
-          >
-            {{ option.text }}
-          </option>
-        </select>
-      </div>
+    <div class="header" :class="isMobile ? 'h60' : 'h40'">
+      <div></div>
       <div style="text-align: center" @click="update">
         <button class="update-button">财务报表计算</button>
       </div>
     </div>
-    <div id="luckysheet"></div>
+    <div id="luckysheet" :class="isMobile ? 't100' : 't60'"></div>
   </div>
 
   <Teleport to="body">
@@ -43,28 +27,18 @@
 
 <script setup>
 import { ref, onMounted, onUpdated } from "vue";
+import LuckyExcel from "luckyexcel";
+
 import { exportExcel } from "./export";
 import Modal from "./Modal.vue";
-import LuckyExcel from "luckyexcel";
-const types = ["./assets/family-io.xlsx", "./assets/family-o.xlsx"];
+
+const templates = ["./assets/family-pc.xlsx", "./assets/family-mobile.xlsx"];
 const showModal = ref(false);
 const isMobile = ref(true);
-const selected = ref(types[0]);
-const isFirst = ref(true);
 const successInfo = ref("");
 const errorInfo = ref("");
 const jsonData = ref({});
 const yearlyOutcome = ref(0);
-const options = ref([
-  {
-    text: "家庭收入支出表-年度.xlsx",
-    value: types[0],
-  },
-  {
-    text: "家庭资产负债表.xlsx",
-    value: types[1],
-  },
-]);
 
 function getCell(r, c) {
   return luckysheet.getCellValue(r, 7);
@@ -122,14 +96,11 @@ function rightResult(col = 7, rows = [3, 4, 5]) {
 }
 
 function update() {
-  let result = [[], []];
-  if (isMobile.value) {
-    result = isFirst.value ? leftResult() : rightResult();
-  } else {
-    const [ls, le] = leftResult();
-    const [rs, re] = rightResult(16);
-    result = [ls.concat(rs), le.concat(re)];
-  }
+  const [ls, le] = leftResult();
+  const [rs, re] = isMobile.value
+    ? rightResult(7, [29, 30, 31])
+    : rightResult(16);
+  const result = [ls.concat(rs), le.concat(re)];
 
   const [successMsg, errorMsg] = result.map((x) => x.join(","));
   successInfo.value = successMsg;
@@ -151,40 +122,10 @@ onMounted(() => {
   luckysheet.create({
     container: "luckysheet",
     showinfobar: false,
-    cellUpdated: (e) => {
-      console.log(11, e);
-    },
   });
-  const { text, value } = isPhone
-    ? options.value[0]
-    : { text: "ALL", value: "./assets/family-all.xlsx" };
-  loadTable(value, text);
-
-  if (isPhone) {
-    setTimeout(() => {
-      if (isFirst.value) {
-        yearlyOutcome.value = luckysheet.getCellValue(21, 5);
-        console.log("get: ", yearlyOutcome.value);
-      }
-    }, 2000);
-  }
+  const template = templates[+isPhone];
+  loadTable(template, "template");
 });
-
-onUpdated(() => {
-  if (isFirst.value && isMobile.value) {
-    setTimeout(() => {
-      console.log("set", yearlyOutcome.value);
-      luckysheet.setCellValue(25, 5, yearlyOutcome.value);
-    }, 2000);
-  }
-});
-
-function selectExcel(evt) {
-  const value = selected.value;
-  isFirst.value = value === types[0];
-  const name = evt.target.options[evt.target.selectedIndex].innerText;
-  loadTable(value, name);
-}
 
 function loadTable(value, name) {
   if (value == "") {
@@ -215,6 +156,21 @@ function loadTable(value, name) {
     }
   );
 }
+// onUpdated(() => {
+//   if (isFirst.value && isMobile.value) {
+//     setTimeout(() => {
+//       console.log('set', yearlyOutcome.value);
+//       luckysheet.setCellValue(25, 5, yearlyOutcome.value);
+//     }, 2000);
+//   }
+// });
+
+// function selectExcel(evt) {
+//   const value = selected.value;
+//   isFirst.value = value === types[0];
+//   const name = evt.target.options[evt.target.selectedIndex].innerText;
+//   loadTable(value, name);
+// }
 </script>
 
 <style scoped>
@@ -225,7 +181,18 @@ function loadTable(value, name) {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+.h40 {
+  height: 40px;
+}
+.h60 {
   height: 60px;
+}
+.t60 {
+  top: 60px;
+}
+.t100 {
+  top: 100px;
 }
 #luckysheet {
   margin: 0px;
@@ -233,7 +200,6 @@ function loadTable(value, name) {
   position: absolute;
   width: 100%;
   left: 0px;
-  top: 100px;
   bottom: 0px;
 }
 
